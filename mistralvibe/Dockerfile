@@ -24,8 +24,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- ttyd: static binary (not in Debian repos) ------------------------------
-# Asset names verified via GitHub API for release 1.7.7:
-#   ttyd.aarch64 / ttyd.i686 / ttyd.x86_64 (amd64) / ...
 RUN case "${BUILD_ARCH}" in \
         aarch64) TTYD_ASSET="ttyd.aarch64" ;; \
         amd64)   TTYD_ASSET="ttyd.x86_64" ;; \
@@ -38,6 +36,7 @@ RUN case "${BUILD_ARCH}" in \
  && chmod +x /usr/local/bin/ttyd
 
 # ---- s6-overlay v2 (native /etc/cont-init.d + /etc/services.d support) -----
+# MUST be extracted to / — it provides /init, the container entrypoint.
 RUN case "${BUILD_ARCH}" in \
         aarch64) S6_ARCH="aarch64" ;; \
         *)       S6_ARCH="amd64" ;; \
@@ -45,20 +44,14 @@ RUN case "${BUILD_ARCH}" in \
     curl -fsSL \
       "https://github.com/just-containers/s6-overlay/releases/download/v2.1.0.2/s6-overlay-${S6_ARCH}.tar.gz" \
       -o /tmp/s6.tar.gz \
- && mkdir -p /s6 \
- && tar -xzf /tmp/s6.tar.gz -C /s6 \
+ && tar -xzf /tmp/s6.tar.gz -C / \
  && rm /tmp/s6.tar.gz
 
 # ---- uv + managed Python + CLIs ---------------------------------------------
-# On Debian/glibc, mistral-vibe ships prebuilt manylinux wheels:
-# no Rust toolchain, no V8 source build needed.
 RUN curl -LsSf https://astral.sh/uv/install.sh \
       | env UV_INSTALL_DIR=/usr/local/bin sh \
  && uv python install 3.13 \
- && UV_INDEX_STRATEGY=unsafe-best-match \
-    uv tool install --python 3.13 \
-    --index https://pypi.org/simple \
-    mistral-vibe \
+ && uv tool install --python 3.13 mistral-vibe \
  && python3 -m pip install --break-system-packages --no-cache-dir fastmcp httpx \
  && rm -rf /root/.cache /tmp/*
 
@@ -75,7 +68,6 @@ RUN chmod a+x \
         /etc/services.d/vibe-terminal/run \
         /etc/services.d/vibe-terminal/finish
 
-# s6-overlay v2 init as entrypoint
 ENTRYPOINT ["/init"]
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
