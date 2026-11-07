@@ -24,8 +24,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- bashio (preinstalled in HA base images, missing on Debian) -------------
-# The app's rootfs scripts use "#!/usr/bin/with-contenv bashio" and call
-# bashio::config / bashio::log.*, so this is mandatory.
 RUN curl -fsSL -o /tmp/bashio.tar.gz \
       "https://github.com/hassio-addons/bashio/archive/refs/tags/v0.19.0.tar.gz" \
  && mkdir -p /tmp/bashio \
@@ -47,10 +45,16 @@ RUN case "${BUILD_ARCH}" in \
  && chmod +x /usr/local/bin/ttyd
 
 # ---- s6-overlay v2 (native /etc/cont-init.d + /etc/services.d support) -----
-# Debian bookworm is merged-usr: /bin is a symlink to usr/bin. The s6 tarball
-# contains a real ./bin directory that would clobber it, so:
-#   1. extract everything except ./bin to /
-#   2. extract ./bin contents into /usr/bin (reachable via /bin symlink)
+# Debian bookworm is merged-usr: /bin is a symlink to usr/bin, and the s6
+# tarball contains a real ./bin directory that would clobber it. Also note:
+# GNU tar "--exclude=bin" matches ANY path component, so it would silently
+# drop ./usr/bin/* (printcontenv, with-contenv, fix-attrs, ...). Therefore:
+# extract to a staging dir and place files explicitly.
+#  - ./init, ./libexec, ./etc -> / (s6 init chain + dirs; /bin symlink intact)
+#  - ./bin/*  (real ELF binaries)          -> /usr/bin  (reachable via /bin)
+#  - ./usr/bin/* regular FILES (scripts)   -> /usr/bin
+#  - ./usr/bin/* symlinks (point to /bin/X) are skipped: /bin/X already
+#    resolves to /usr/bin/X after the previous step.
 RUN case "${BUILD_ARCH}" in \
         aarch64) S6_ARCH="aarch64" ;; \
         *)       S6_ARCH="amd64" ;; \
@@ -58,9 +62,15 @@ RUN case "${BUILD_ARCH}" in \
     curl -fsSL \
       "https://github.com/just-containers/s6-overlay/releases/download/v2.1.0.2/s6-overlay-${S6_ARCH}.tar.gz" \
       -o /tmp/s6.tar.gz \
- && tar -xzf /tmp/s6.tar.gz -C / --exclude=bin \
- && tar -xzf /tmp/s6.tar.gz -C /usr/bin --strip-components=2 ./bin \
- && rm /tmp/s6.tar.gz
+ && mkdir -p /tmp/s6root \
+ && tar -xzf /tmp/s6.tar.gz -C /tmp/s6root \
+ && cp -a /tmp/s6root/init /tmp/s6root/libexec / \
+ && cp -a /tmp/s6root/etc/. /etc/ \
+ && cp -a /tmp/s6root/bin/. /usr/bin/ \
+ && find /tmp/s6root/usr/bin -maxdepth 1 -type f -exec cp -a -t /usr/bin {} + \
+ && rm -rf /tmp/s6root /tmp/s6.tar.gz \
+ && test -x /usr/bin/printcontenv && test -x /usr/bin/with-contenv \
+ && test -x /usr/bin/execlineb && test -x /etc/s6/init/init-stage1
 
 # ---- uv + managed Python + CLIs ---------------------------------------------
 RUN curl -LsSf https://astral.sh/uv/install.sh \
@@ -93,3 +103,4 @@ LABEL \
     io.hass.description="Run Mistral Vibe CLI directly inside Home Assistant" \
     io.hass.type="app" \
     maintainer="Paul de Vries <BillyBlaze@users.noreply.github.com>"
+    
