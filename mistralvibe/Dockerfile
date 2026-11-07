@@ -21,9 +21,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # ttyd: static binary (not in Debian repos)
-ARG TTYD_VERSION=1.7.7
-RUN curl -fsSL \
-      "https://github.com/tsl0920/ttyd/releases/download/${TTYD_VERSION}/ttyd.x86_64" \
+RUN case "${BUILD_ARCH}" in \
+        aarch64) TTYD_ASSET="ttyd.aarch64" ;; \
+        *)       TTYD_ASSET="ttyd.x86" ;; \
+    esac && \
+    curl -fsSL \
+      "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/${TTYD_ASSET}" \
       -o /usr/local/bin/ttyd \
  && chmod +x /usr/local/bin/ttyd
 
