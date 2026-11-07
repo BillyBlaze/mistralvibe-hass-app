@@ -23,6 +23,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         openssh-client python3 python3-pip ripgrep tmux tzdata xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
+# ---- bashio (preinstalled in HA base images, missing on Debian) -------------
+# The app's rootfs scripts use "#!/usr/bin/with-contenv bashio" and call
+# bashio::config / bashio::log.*, so this is mandatory.
+RUN curl -fsSL -o /tmp/bashio.tar.gz \
+      "https://github.com/hassio-addons/bashio/archive/refs/tags/v0.19.0.tar.gz" \
+ && mkdir -p /tmp/bashio \
+ && tar -xzf /tmp/bashio.tar.gz --strip-components=1 -C /tmp/bashio \
+ && mv /tmp/bashio/lib /usr/lib/bashio \
+ && ln -sf /usr/lib/bashio/bashio /usr/bin/bashio \
+ && rm -rf /tmp/bashio /tmp/bashio.tar.gz
+
 # ---- ttyd: static binary (not in Debian repos) ------------------------------
 RUN case "${BUILD_ARCH}" in \
         aarch64) TTYD_ASSET="ttyd.aarch64" ;; \
