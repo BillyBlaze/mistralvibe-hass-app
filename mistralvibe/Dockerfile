@@ -34,6 +34,13 @@ RUN apk add --no-cache \
         tmux \
         ttyd \
         tzdata \
+
+        # added
+        cargo \
+        rust \
+        gcc \
+        musl-dev \
+        pkgconfig \
     && rm -rf /var/cache/apk/*
 
 # ---- uv + managed Python + CLIs --------------------------------------------

@@ -1,3 +1,3 @@
-name: Mistral Vibe Home Assistant Add-ons
-url: https://github.com/umrath/mistralvibe-hass-addons
-maintainer: umrath <thoralf@umrath.net>
+name: Mistral Vibe CLI Home Assistant (Fork)
+url: https://github.com/BillyBlaze/mistralvibe-hass-app
+maintainer: Paul de Vries <BillyBlaze@users.noreply.github.com>
