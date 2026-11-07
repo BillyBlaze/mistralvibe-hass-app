@@ -44,17 +44,12 @@ RUN case "${BUILD_ARCH}" in \
       -o /usr/local/bin/ttyd \
  && chmod +x /usr/local/bin/ttyd
 
-# ---- s6-overlay v2 (native /etc/cont-init.d + /etc/services.d support) -----
-# Debian bookworm is merged-usr: /bin is a symlink to usr/bin, and the s6
-# tarball contains a real ./bin directory that would clobber it. Also note:
-# GNU tar "--exclude=bin" matches ANY path component, so it would silently
-# drop ./usr/bin/* (printcontenv, with-contenv, fix-attrs, ...). Therefore:
-# extract to a staging dir and place files explicitly.
-#  - ./init, ./libexec, ./etc -> / (s6 init chain + dirs; /bin symlink intact)
-#  - ./bin/*  (real ELF binaries)          -> /usr/bin  (reachable via /bin)
-#  - ./usr/bin/* regular FILES (scripts)   -> /usr/bin
-#  - ./usr/bin/* symlinks (point to /bin/X) are skipped: /bin/X already
-#    resolves to /usr/bin/X after the previous step.
+# ---- s6-overlay v2 -----------------------------------------------------------
+# Debian bookworm is merged-usr: /bin is a symlink to usr/bin. The s6 tarball
+# has a real ./bin directory (would clobber it) and ./usr/bin/execlineb is a
+# symlink to /bin/execlineb (dangling under merged-usr). So: extract to a
+# staging dir, drop the dangling symlink, then copy everything into /usr/bin
+# and / — leaving Debian's /bin symlink untouched.
 RUN case "${BUILD_ARCH}" in \
         aarch64) S6_ARCH="aarch64" ;; \
         *)       S6_ARCH="amd64" ;; \
@@ -64,13 +59,11 @@ RUN case "${BUILD_ARCH}" in \
       -o /tmp/s6.tar.gz \
  && mkdir -p /tmp/s6root \
  && tar -xzf /tmp/s6.tar.gz -C /tmp/s6root \
- && cp -a /tmp/s6root/init /tmp/s6root/libexec / \
- && cp -a /tmp/s6root/etc/. /etc/ \
+ && rm -f /tmp/s6root/usr/bin/execlineb \
  && cp -a /tmp/s6root/bin/. /usr/bin/ \
- && find /tmp/s6root/usr/bin -maxdepth 1 -type f -exec cp -a -t /usr/bin {} + \
- && rm -rf /tmp/s6root /tmp/s6.tar.gz \
- && test -x /usr/bin/printcontenv && test -x /usr/bin/with-contenv \
- && test -x /usr/bin/execlineb && test -x /etc/s6/init/init-stage1
+ && cp -a /tmp/s6root/usr/bin/. /usr/bin/ \
+ && cp -a /tmp/s6root/etc /tmp/s6root/libexec /tmp/s6root/init / \
+ && rm -rf /tmp/s6root /tmp/s6.tar.gz
 
 # ---- uv + managed Python + CLIs ---------------------------------------------
 RUN curl -LsSf https://astral.sh/uv/install.sh \
@@ -103,4 +96,3 @@ LABEL \
     io.hass.description="Run Mistral Vibe CLI directly inside Home Assistant" \
     io.hass.type="app" \
     maintainer="Paul de Vries <BillyBlaze@users.noreply.github.com>"
-    
