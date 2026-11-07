@@ -36,7 +36,10 @@ RUN case "${BUILD_ARCH}" in \
  && chmod +x /usr/local/bin/ttyd
 
 # ---- s6-overlay v2 (native /etc/cont-init.d + /etc/services.d support) -----
-# MUST be extracted to / — it provides /init, the container entrypoint.
+# Debian bookworm is merged-usr: /bin is a symlink to usr/bin. The s6 tarball
+# contains a real ./bin directory that would clobber it, so:
+#   1. extract everything except ./bin to /
+#   2. extract ./bin contents into /usr/bin (reachable via /bin symlink)
 RUN case "${BUILD_ARCH}" in \
         aarch64) S6_ARCH="aarch64" ;; \
         *)       S6_ARCH="amd64" ;; \
@@ -44,7 +47,8 @@ RUN case "${BUILD_ARCH}" in \
     curl -fsSL \
       "https://github.com/just-containers/s6-overlay/releases/download/v2.1.0.2/s6-overlay-${S6_ARCH}.tar.gz" \
       -o /tmp/s6.tar.gz \
- && tar -xzf /tmp/s6.tar.gz -C / \
+ && tar -xzf /tmp/s6.tar.gz -C / --exclude=bin \
+ && tar -xzf /tmp/s6.tar.gz -C /usr/bin --strip-components=2 ./bin \
  && rm /tmp/s6.tar.gz
 
 # ---- uv + managed Python + CLIs ---------------------------------------------
