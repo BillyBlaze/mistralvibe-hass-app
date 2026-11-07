@@ -156,3 +156,44 @@ All notable changes to this app will be documented in this file.
 - Automatic mobile detection: iOS clients (iPhone/iPad) get tmux-free session for native touch scrolling
 - TCP proxy on port 7681 routes to desktop (7682, with tmux) or mobile (7683, no tmux) ttyd
 
+## 2.0.0 — 2026-11-07
+
+### Changed
+- **Base image migrated from Alpine/HA base to `debian:bookworm-slim`.**
+  The mistral-vibe PyPI package ships Rust extensions and a rusty_v8 prebuilt
+  binary that does not exist for musl (`librusty_v8_*_alpine-linux-musl.a.gz`
+  returns HTTP 404 on every release), making the Alpine/HA-base build impossible.
+  Debian/glibc installs prebuilt manylinux wheels via uv with no Rust toolchain
+  and no V8 source build.
+- Python runtime now provisioned via uv (managed Python 3.13, tool installs in
+  `/opt`), replacing the base-image Python.
+- s6-overlay v2.1.0.2 installed from upstream tarballs with a merged-usr-safe
+  procedure: extraction to a staging directory, then copying into `/usr/bin`
+  so Debian's `/bin → usr/bin` symlink is never clobbered.
+
+### Added
+- bashio v0.19.0 installed explicitly (preinstalled in HA base images, missing
+  on Debian). Required by all rootfs service scripts.
+- ttyd download now maps HA build arch to the correct upstream release asset
+  (`amd64 → ttyd.x86_64`, `aarch64 → ttyd.aarch64`, `i386 → ttyd.i686`) and
+  fails the build with a clear error on unsupported architectures.
+
+### Fixed
+- `/init` is actually present at container start (s6 tarball is now extracted
+  into the image root, not a subdirectory).
+- s6-overlay installation no longer breaks `/bin` on merged-usr systems
+  (previously `/bin/bash` disappeared at build time, causing exit code 126 at
+  container start).
+- All 11 s6 helper scripts under `/usr/bin` (`printcontenv`, `with-contenv`,
+  `justc-envdir`, `fix-attrs`, `logutil-*`, `with-retries`) are installed;
+  previously lost to an over-broad tar exclude pattern, which aborted s6 init
+  with `unable to spawn printcontenv`.
+- AppArmor profile grants execute (`ixr`) on `/etc/s6/**`; previously only
+  `/etc/cont-init.d/**`, `/etc/services.d/**` etc. were covered, so the kernel
+  denied execution of the s6 init scripts at container start.
+
+### Notes
+- Verified working end-to-end on HA OS x86_64/amd64: image builds, container
+  starts, ttyd terminal reachable via Ingress, MCP bridge authenticated via
+  SUPERVISOR_TOKEN, Vibe CLI runs against a Vibe Pro API key.
+- Maintainer label updated for the fork.
