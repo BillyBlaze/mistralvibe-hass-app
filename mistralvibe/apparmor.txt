@@ -66,4 +66,5 @@ profile mistralvibe flags=(attach_disconnected,mediate_deleted) {
   /etc/services.d/** ixr,
   /etc/fix-attrs.d/** ixr,
   /etc/cont-finish.d/** ixr,
+  /etc/s6/** ixr,
 }
