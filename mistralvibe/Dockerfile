@@ -50,7 +50,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh \
  && UV_INDEX_STRATEGY=unsafe-best-match \
     uv tool install --python 3.13 \
     --index https://pypi.org/simple \
-    mistral-vibe \
+    "mistral-vibe==3.0.2" \
  && python3 -m pip install --break-system-packages --no-cache-dir fastmcp httpx \
  && rm -rf /root/.cache /tmp/*
 
