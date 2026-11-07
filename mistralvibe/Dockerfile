@@ -1,6 +1,9 @@
 ARG BUILD_ARCH=amd64
 FROM debian:bookworm-slim
 
+# Re-declare so the build-arg from the Supervisor/buildx CLI is usable below
+ARG BUILD_ARCH=amd64
+
 ENV LANG=C.UTF-8 \
     LC_ALL=C.UTF-8 \
     PYTHONDONTWRITEBYTECODE=1 \
@@ -20,18 +23,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         openssh-client python3 python3-pip ripgrep tmux tzdata xz-utils \
     && rm -rf /var/lib/apt/lists/*
 
-# ttyd: static binary (not in Debian repos)
+# ---- ttyd: static binary (not in Debian repos) ----------------------------
 RUN case "${BUILD_ARCH}" in \
         aarch64) TTYD_ASSET="ttyd.aarch64" ;; \
         *)       TTYD_ASSET="ttyd.x86" ;; \
     esac && \
     curl -fsSL \
-      "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/${TTYD_ASSET}" \
+      "https://github.com/tsl0922/ttyd/releases/download/1.7.7/${TTYD_ASSET}" \
       -o /usr/local/bin/ttyd \
  && chmod +x /usr/local/bin/ttyd
 
 # ---- s6-overlay v2 (native /etc/cont-init.d + /etc/services.d support) ----
-ARG BUILD_ARCH=amd64
 RUN case "${BUILD_ARCH}" in \
         aarch64) S6_ARCH="aarch64" ;; \
         *)       S6_ARCH="amd64" ;; \
@@ -39,8 +41,7 @@ RUN case "${BUILD_ARCH}" in \
     curl -fsSL \
       "https://github.com/just-containers/s6-overlay/releases/download/v2.1.0.2/s6-overlay-${S6_ARCH}.tar.gz" \
       -o /tmp/s6.tar.gz \
- && mkdir -p /s6 \
- && tar -xzf /tmp/s6.tar.gz -C /s6 \
+ && tar -xzf /tmp/s6.tar.gz -C / \
  && rm /tmp/s6.tar.gz
 
 # ---- uv + managed Python + CLIs --------------------------------------------
@@ -60,7 +61,7 @@ RUN curl -LsSf https://astral.sh/uv/install.sh \
 RUN curl -fsSL "https://github.com/home-assistant/cli/releases/latest/download/ha_${BUILD_ARCH}" \
         -o /usr/local/bin/ha && chmod +x /usr/local/bin/ha
 
-# ---- app rootfs -----------------------------------------------------------
+# ---- app rootfs ------------------------------------------------------------
 COPY rootfs/ /
 
 RUN chmod a+x \
